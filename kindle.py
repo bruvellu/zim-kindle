@@ -42,7 +42,7 @@ class KindlePlugin(PluginClass):
             Path(":Kindle"),
         ),  # T: preference option
         (
-            "clippings_file",
+            "clipfile",
             "file",
             _("Path to 'My Clippings.txt'"),
             "",
@@ -55,7 +55,7 @@ class KindlePageViewExtension(PageViewExtension):
         PageViewExtension.__init__(self, plugin, pageview)
         self.properties = None
         self.rootpage = None
-        self.clippings_file = None
+        self.clipfile = None
         self.clipdata = None
         self.format = get_format("wiki")
         self._update_properties()
@@ -63,16 +63,18 @@ class KindlePageViewExtension(PageViewExtension):
     def _update_properties(self):
         self.properties = self.plugin.notebook_properties(self.pageview.notebook)
         self.rootpage = self.properties["rootpage"]
-        self.clippings_file = self.properties["clippings_file"]
+        self.clipfile = self.properties["clipfile"]
+        logger.debug(f"Kindle: Namespace is '{self.rootpage}'")
+        logger.debug(f"Kindle: Filename is '{self.clipfile}'")
 
     @action(_("Import _Kindle Clippings"), menuhints="tools")  # T: menu item
     def import_kindle_clippings(self):
         self._update_properties()
-        if not self.clippings_file:
+        if not self.clipfile:
             logger.error("Kindle: No clippings file specified in notebook properties")
             return
 
-        self.clipdata = KindleClippings(self.clippings_file)
+        self.clipdata = KindleClippings(self.clipfile)
         if not self.clipdata.books:
             logger.error("Kindle: No entries found in clippings file")
             return
@@ -176,7 +178,6 @@ class KindlePageViewExtension(PageViewExtension):
 
 class KindleClippings:
     def __init__(self, filepath):
-        self.clippings_file = filepath
         self.clippings_path = os.path.expanduser(filepath)
         self.clippings_name = os.path.basename(self.clippings_path)
         self.books = {}
@@ -221,7 +222,7 @@ class KindleClippings:
             text = "\n".join(lines[2:]) if len(lines) > 2 else ""
 
             # Make sure titles have no colon (reserved for namespaces)
-            title = book_info["title"].replace(":", " -")
+            title = self._sanitize_book_title(book_info["title"])
             if title not in self.books:
                 self.books[title] = {
                     "title": title,
@@ -239,6 +240,15 @@ class KindleClippings:
                     "text": text,
                 }
             )
+
+    def _sanitize_book_title(self, title):
+        """Sanitize book titles to remove unwanted characters."""
+        # Replace ":" by "-" as ":" is reserved for namespace
+        sane_title = title.replace(":", " -")
+        # Remove <i> and <b> tags
+        sane_title = re.sub(r"<i>|</i>|<b>|</b>", "", sane_title)
+        # Only custom changes above, makeValidPageName will do the rest
+        return sane_title
 
     def _parse_title_author(self, line):
         """Parse the title and author from the first line."""
