@@ -111,29 +111,27 @@ class KindlePageViewExtension(PageViewExtension):
         page = self.pageview.notebook.get_page(self.rootpage)
         content = self.get_page_title(page, "Kindle Clippings")
 
-        # Add library statistics
+        # Add library statistics with a link to the clippings file
         content.extend(
             [
                 "\n===== Library =====\n",
-                f"* {self.bibdata.clippings_name} | "
+                f"* [[file://{self.bibdata.clippings_path}|{self.bibdata.clippings_name}]] | "
                 f"{len(self.bibdata.books)} books | "
                 f"{self.bibdata.total_entries} entries | "
                 f"Updated {self.bibdata.updated}\n",
             ]
         )
 
-        # Add folders section if folders exist
-        if self.bibdata.folders:
-            content.extend(
-                [
-                    "\n===== Folders =====\n",
-                    "* "
-                    + " | ".join(
-                        [f"[[+{folder}|{folder}]]" for folder in self.bibdata.folders]
-                    )
-                    + "\n",
-                ]
-            )
+        # Add book listing section
+        content.append("\n===== Books =====\n")
+
+        # Generate alphabetically sorted book list with links
+        sorted_books = sorted(self.bibdata.books.items(), key=lambda x: x[0].lower())
+        for title, book in sorted_books:
+            # Create valid page name and link
+            name = self.rootpage.name + ":" + title
+            valid_name = Path.makeValidPageName(name)
+            content.append(f"* [[{valid_name}|{book['title']}]]\n")
 
         # Update content tree and save page
         page.set_parsetree(self.get_content_tree(content))
