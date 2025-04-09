@@ -155,10 +155,10 @@ class KindlePageViewExtension(PageViewExtension):
 
             for entry in book["entries"]:
                 content.append(
-                    f"{entry['date'].strftime('%Y-%m-%d %H:%M')} | "
                     f"**{entry['type'].title()}** | "
                     f"Page: {entry.get('page', 'N/A')} | "
-                    f"Location: {entry.get('location', 'N/A')}\n"
+                    f"Location: {entry.get('location', 'N/A')} | "
+                    f"{entry['date'].strftime('%Y-%m-%d %H:%M')}\n"
                     f"{entry['text']}\n\n"
                 )
 
