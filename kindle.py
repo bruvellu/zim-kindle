@@ -50,6 +50,7 @@ class KindlePageViewExtension(PageViewExtension):
         self.properties = None
         self.rootpage = None
         self.clippings_file = None
+        self.bibdata = None
         self.format = get_format("wiki")
         self._update_properties()
 
@@ -65,40 +66,20 @@ class KindlePageViewExtension(PageViewExtension):
             logger.error("Kindle: No clippings file specified in notebook properties")
             return
 
-        clippings = KindleClippings(self.clippings_file)
-        if not clippings.books:
+        self.bibdata = KindleClippings(self.clippings_file)
+        if not self.bibdata.books:
             logger.error("Kindle: No entries found in clippings file")
             return
 
-        # Create root page
-        root = self.pageview.notebook.get_page(self.rootpage)
-        content = self._get_page_content(root, "Kindle Clippings")
-        content += self._get_stats_content(clippings)
-        tree = self._parse_to_tree(content)
-        root.set_parsetree(tree)
-        self.pageview.notebook.store_page(root)
-
-        # Create book pages
-        for book in clippings.books.values():
-            path = Path(self.rootpage.name + ":" + sanitize_pagename(book["title"]))
-            page = self.pageview.notebook.get_page(path)
-            content = self._format_book_page(book)
-            tree = self._parse_to_tree(content)
-
-            # Set the parse tree and let Zim handle whether it's new or existing
-            page.set_parsetree(tree)
-
-            try:
-                self.pageview.notebook.store_page(page)
-                logger.debug(f"Kindle: Imported book {book['title']}")
-            except Exception as e:
-                logger.error(f"Kindle: Failed to store page for {book['title']}: {e}")
+        # Update root page and import entries
+        self.update_root()
+        self.import_entries()
 
         logger.info(
-            f"Imported {len(clippings.books)} books with {clippings.total_entries} entries"
+            f"Kindle: Imported {len(self.bibdata.books)} books with {self.bibdata.total_entries} entries"
         )
 
-    def _get_page_content(self, page, title):
+    def get_page_title(self, page, title):
         """Get or create basic page content with title."""
         if page.hascontent:
             # Get content tree and dump as a list
@@ -114,53 +95,79 @@ class KindlePageViewExtension(PageViewExtension):
             ]
         return page_content
 
-    def _get_stats_content(self, clippings):
-        """Generate statistics section for the root page."""
-        stats = [
-            "\n===== Library =====\n",
-            f"* {clippings.clippings_name} | "
-            f"{len(clippings.books)} books | "
-            f"{clippings.total_entries} entries | "
-            f"Updated {clippings.updated}\n",
-        ]
+    def get_content_tree(self, content):
+        """Convert page content list back to tree."""
+        # Convert list to text and parse to regenerate content tree
+        if isinstance(content, list):
+            text = "".join(content)
+        else:
+            text = content
+        tree = self.format.Parser().parse(text)
+        return tree
 
-        if clippings.folders:
-            stats.extend(
+    def update_root(self):
+        """Update root page with Kindle clippings information."""
+        # Get content list with the rootpage's title
+        page = self.pageview.notebook.get_page(self.rootpage)
+        content = self.get_page_title(page, "Kindle Clippings")
+
+        # Add library statistics
+        content.extend(
+            [
+                "\n===== Library =====\n",
+                f"* {self.bibdata.clippings_name} | "
+                f"{len(self.bibdata.books)} books | "
+                f"{self.bibdata.total_entries} entries | "
+                f"Updated {self.bibdata.updated}\n",
+            ]
+        )
+
+        # Add folders section if folders exist
+        if self.bibdata.folders:
+            content.extend(
                 [
                     "\n===== Folders =====\n",
                     "* "
                     + " | ".join(
-                        [f"[[+{folder}|{folder}]]" for folder in clippings.folders]
+                        [f"[[+{folder}|{folder}]]" for folder in self.bibdata.folders]
                     )
                     + "\n",
                 ]
             )
 
-        return stats
+        # Update content tree and save page
+        page.set_parsetree(self.get_content_tree(content))
+        self.pageview.notebook.store_page(page)
+        logger.debug(f"Kindle: Generated index on {self.rootpage}")
 
-    def _format_book_page(self, book):
-        """Format a book page with all its entries."""
-        content = [
-            f"====== {book['title']} ======\n",
-            f"Created {datetime.now().strftime('%A %d %B %Y')}\n\n",
-        ]
+    def import_entries(self):
+        """Import Kindle clippings as individual book pages."""
+        for book in self.bibdata.books.values():
+            # Create valid page name using Zim's validation method
+            name = self.rootpage.name + ":" + book["title"]
+            path = Path(Path.makeValidPageName(name))
 
-        if book["author"]:
-            content.append(f"**Author:** {book['author']}\n\n")
+            page = self.pageview.notebook.get_page(path)
+            content = self.get_page_title(page, book["title"])
 
-        for entry in book["entries"]:
-            content.append(
-                f"**{entry['type'].title()}** - {entry['date'].strftime('%Y-%m-%d %H:%M')}\n"
-                f"Page: {entry.get('page', 'N/A')} | Location: {entry.get('location', 'N/A')}\n"
-                f"{entry['text']}\n\n"
-            )
-        return "".join(content)
+            if book["author"]:
+                content.append(f"\n**Author:** {book['author']}\n\n")
+            else:
+                content.append("\n")
 
-    def _parse_to_tree(self, content):
-        """Convert page content to a parse tree."""
-        if isinstance(content, list):
-            content = "".join(content)
-        return self.format.Parser().parse(content)
+            for entry in book["entries"]:
+                content.append(
+                    f"{entry['date'].strftime('%Y-%m-%d %H:%M')} | "
+                    f"**{entry['type'].title()}** | "
+                    f"Page: {entry.get('page', 'N/A')} | "
+                    f"Location: {entry.get('location', 'N/A')}\n"
+                    f"{entry['text']}\n\n"
+                )
+
+            # Update content tree and save page
+            page.set_parsetree(self.get_content_tree(content))
+            self.pageview.notebook.store_page(page)
+            logger.debug(f"Kindle: Imported book {book['title']}")
 
 
 class KindleClippings:
@@ -212,7 +219,8 @@ class KindleClippings:
             book_info = self._parse_title_author(lines[0])
             text = "\n".join(lines[2:]) if len(lines) > 2 else ""
 
-            title = book_info["title"]
+            # Make sure titles have no colon (reserved for namespaces)
+            title = book_info["title"].replace(":", " -")
             if title not in self.books:
                 self.books[title] = {
                     "title": title,
@@ -233,12 +241,16 @@ class KindleClippings:
 
     def _parse_title_author(self, line):
         """Parse the title and author from the first line."""
-        match = re.match(r"^(?P<title>.+?)(\s+\((?P<author>.+)\))?$", line)
-        if match:
-            return {
-                "title": match.group("title").strip(),
-                "author": match.group("author"),
-            }
+        # Look for the last parenthetical expression as the author
+        last_paren_match = re.search(r"\(([^()]+)\)$", line)
+
+        if last_paren_match:
+            author = last_paren_match.group(1).strip()
+            # Extract title (everything before the last parentheses)
+            title = line[: last_paren_match.start()].strip()
+            return {"title": title, "author": author}
+
+        # If no parentheses, assume the whole line is the title
         return {"title": line, "author": None}
 
     def _parse_metadata(self, line):
@@ -282,7 +294,3 @@ class KindleClippings:
         """Generate folders based on the first letter of book titles."""
         folders = {title[0].upper() for title in self.books.keys() if title}
         return sorted(folders)
-
-
-def sanitize_pagename(name):
-    return re.sub(r"[^a-zA-Z0-9_:.-]", "_", name)
