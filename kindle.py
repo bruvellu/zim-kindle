@@ -26,9 +26,9 @@ class KindlePlugin(PluginClass):
     plugin_info = {
         "name": _("Kindle Clippings"),  # T: plugin name
         "description": _(
-            "Import Kindle highlights and notes into Zim pages"
+            "Import Kindle highlights from a 'My Clippings.txt' file into Zim pages"
         ),  # T: plugin description
-        "author": "Your Name",
+        "author": "Bruno C. Vellutini",
         "help": "Plugins:Kindle",
     }
 
@@ -56,7 +56,7 @@ class KindlePageViewExtension(PageViewExtension):
         self.properties = None
         self.rootpage = None
         self.clippings_file = None
-        self.bibdata = None
+        self.clipdata = None
         self.format = get_format("wiki")
         self._update_properties()
 
@@ -72,8 +72,8 @@ class KindlePageViewExtension(PageViewExtension):
             logger.error("Kindle: No clippings file specified in notebook properties")
             return
 
-        self.bibdata = KindleClippings(self.clippings_file)
-        if not self.bibdata.books:
+        self.clipdata = KindleClippings(self.clippings_file)
+        if not self.clipdata.books:
             logger.error("Kindle: No entries found in clippings file")
             return
 
@@ -82,7 +82,7 @@ class KindlePageViewExtension(PageViewExtension):
         self.import_entries()
 
         logger.info(
-            f"Kindle: Imported {len(self.bibdata.books)} books with {self.bibdata.total_entries} entries"
+            f"Kindle: Imported {len(self.clipdata.books)} books with {self.clipdata.total_entries} entries"
         )
 
     def get_page_title(self, page, title):
@@ -121,10 +121,10 @@ class KindlePageViewExtension(PageViewExtension):
         content.extend(
             [
                 "\n===== Library =====\n",
-                f"* [[file://{self.bibdata.clippings_path}|{self.bibdata.clippings_name}]] | "
-                f"{len(self.bibdata.books)} books | "
-                f"{self.bibdata.total_entries} entries | "
-                f"Updated {self.bibdata.updated}\n",
+                f"* [[file://{self.clipdata.clippings_path}|{self.clipdata.clippings_name}]] | "
+                f"{len(self.clipdata.books)} books | "
+                f"{self.clipdata.total_entries} entries | "
+                f"Updated {self.clipdata.updated}\n",
             ]
         )
 
@@ -132,7 +132,7 @@ class KindlePageViewExtension(PageViewExtension):
         content.append("\n===== Books =====\n")
 
         # Generate alphabetically sorted book list with links
-        sorted_books = sorted(self.bibdata.books.items(), key=lambda x: x[0].lower())
+        sorted_books = sorted(self.clipdata.books.items(), key=lambda x: x[0].lower())
         for title, book in sorted_books:
             # Create valid page name and link
             name = self.rootpage.name + ":" + title
@@ -146,7 +146,7 @@ class KindlePageViewExtension(PageViewExtension):
 
     def import_entries(self):
         """Import Kindle clippings as individual book pages."""
-        for book in self.bibdata.books.values():
+        for book in self.clipdata.books.values():
             # Create valid page name using Zim's validation method
             name = self.rootpage.name + ":" + book["title"]
             path = Path(Path.makeValidPageName(name))
