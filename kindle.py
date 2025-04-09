@@ -23,6 +23,8 @@ from zim.plugins import PluginClass
 
 
 class KindlePlugin(PluginClass):
+    """Main plugin class for Kindle Clippings options."""
+
     plugin_info = {
         "name": _("Kindle Clippings"),  # T: plugin name
         "description": _(
@@ -52,6 +54,7 @@ class KindlePlugin(PluginClass):
 
 class KindlePageViewExtension(PageViewExtension):
     def __init__(self, plugin, pageview):
+        """Initialize with plugin and page view parameters."""
         PageViewExtension.__init__(self, plugin, pageview)
         self.properties = None
         self.rootpage = None
@@ -61,6 +64,7 @@ class KindlePageViewExtension(PageViewExtension):
         self._update_properties()
 
     def _update_properties(self):
+        """Retrieve plugin options from notebook properties and update variables."""
         self.properties = self.plugin.notebook_properties(self.pageview.notebook)
         self.rootpage = self.properties["rootpage"]
         self.clipfile = self.properties["clipfile"]
@@ -69,6 +73,7 @@ class KindlePageViewExtension(PageViewExtension):
 
     @action(_("Import _Kindle Clippings"), menuhints="tools")  # T: menu item
     def import_kindle_clippings(self):
+        """Main logic to import clippings into the notebook."""
         self._update_properties()
         if not self.clipfile:
             logger.error("Kindle: No clippings file specified in notebook properties")
@@ -177,6 +182,7 @@ class KindlePageViewExtension(PageViewExtension):
 
 class KindleClippings:
     def __init__(self, filepath):
+        """Initializes instance that loads and parses the clipping data."""
         self.clippings_path = os.path.expanduser(filepath)
         self.clippings_name = os.path.basename(self.clippings_path)
         self.books = {}
