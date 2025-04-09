@@ -26,9 +26,9 @@ class KindlePlugin(PluginClass):
     """Main plugin class for Kindle Clippings options."""
 
     plugin_info = {
-        "name": _("Kindle Clippings"),  # T: plugin name
+        "name": _("Kindle"),  # T: plugin name
         "description": _(
-            "Import Kindle highlights from a 'My Clippings.txt' file into Zim pages"
+            "Import your Kindle highlights from a 'My Clippings.txt' file into Zim"
         ),  # T: plugin description
         "author": "Bruno C. Vellutini",
         "help": "Plugins:Kindle",
