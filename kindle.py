@@ -1,5 +1,11 @@
-# kindle.py - Zim plugin for importing Kindle clippings
-# Based on zim-bibtex plugin structure and _kindle-to-zim.py parser
+# Copyleft 2025 - Bruno C. Vellutini - brunovellutini.com
+#
+# Import Kindle clippings to Zim Desktop Wiki
+#
+# This plugin imports your highlights from Kindle into your Zim notebook.
+# It parses the "My Clippings.txt" file, creates one page per book and add
+# the highlights as the contents. This allows you to access and link to your
+# highlights in your Zim workflow.
 
 import re
 import os
