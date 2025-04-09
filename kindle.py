@@ -74,7 +74,8 @@ class KindlePageViewExtension(PageViewExtension):
         root = self.pageview.notebook.get_page(self.rootpage)
         content = self._get_page_content(root, "Kindle Clippings")
         content += self._get_stats_content(clippings)
-        root.set_parsetree(self._parse_to_tree(content))
+        tree = self._parse_to_tree(content)
+        root.set_parsetree(tree)
         self.pageview.notebook.store_page(root)
 
         # Create book pages
@@ -82,8 +83,16 @@ class KindlePageViewExtension(PageViewExtension):
             path = Path(self.rootpage.name + ":" + sanitize_pagename(book["title"]))
             page = self.pageview.notebook.get_page(path)
             content = self._format_book_page(book)
-            page.set_parsetree(self._parse_to_tree(content))
-            self.pageview.notebook.store_page(page)
+            tree = self._parse_to_tree(content)
+
+            # Set the parse tree and let Zim handle whether it's new or existing
+            page.set_parsetree(tree)
+
+            try:
+                self.pageview.notebook.store_page(page)
+                logger.debug(f"Kindle: Imported book {book['title']}")
+            except Exception as e:
+                logger.error(f"Kindle: Failed to store page for {book['title']}: {e}")
 
         logger.info(
             f"Imported {len(clippings.books)} books with {clippings.total_entries} entries"
@@ -234,15 +243,31 @@ class KindleClippings:
 
     def _parse_metadata(self, line):
         """Parse the metadata line for type, page, location, and date."""
-        patterns = [
-            r"- Your (?P<type>Highlight|Note|Bookmark).*?(?:page (?P<page>\d+))?.*?(?:Location (?P<location>[\d-]+))?.*?Added on (?P<date>.+)",
-            r"- Your (?P<type>\w+).*?\| Added on (?P<date>.+)",
-        ]
+        # Extract the entry type (highlight, note, etc)
+        type_match = re.search(r"- Your (?P<type>\w+)", line)
+        entry_type = type_match.group("type").lower() if type_match else "unknown"
 
-        for pattern in patterns:
-            match = re.search(pattern, line)
-            if match:
-                date_str = match.group("date").replace(",", "")
+        # Extract page information - improved pattern
+        page_match = re.search(r"on page (?P<page>\d+(-\d+)?)", line)
+        page = page_match.group("page") if page_match else None
+
+        # Extract location information - improved pattern
+        location_match = re.search(r"Location (?P<location>\d+(-\d+)?)", line)
+        location = location_match.group("location") if location_match else None
+
+        # Extract date information
+        date_match = re.search(r"Added on (?P<date>.+?)(\||$)", line)
+        date_str = (
+            date_match.group("date").strip().replace(",", "") if date_match else ""
+        )
+
+        try:
+            # Try different date formats to accommodate various Kindle date styles
+            date = datetime.strptime(date_str, "%A %B %d %Y %I:%M:%S %p")
+        except ValueError:
+            try:
+                date = datetime.strptime(date_str, "%A %B %d %Y %H:%M:%S")
+            except ValueError:
                 try:
                     date = datetime.strptime(date_str, "%A %d %B %Y %I:%M:%S %p")
                 except ValueError:
@@ -251,17 +276,7 @@ class KindleClippings:
                     except ValueError:
                         date = datetime.now()
 
-                return {
-                    "type": match.group("type").lower(),
-                    "page": match.group("page")
-                    if match.groupdict().get("page")
-                    else None,
-                    "location": match.group("location")
-                    if match.groupdict().get("location")
-                    else None,
-                    "date": date,
-                }
-        return None
+        return {"type": entry_type, "page": page, "location": location, "date": date}
 
     def generate_folders(self):
         """Generate folders based on the first letter of book titles."""
