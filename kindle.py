@@ -181,7 +181,6 @@ class KindleClippings:
         self.clippings_name = os.path.basename(self.clippings_path)
         self.books = {}
         self.total_entries = 0
-        self.folders = []
         self.updated = datetime.now().astimezone().replace(microsecond=0).isoformat()
 
         try:
@@ -196,7 +195,6 @@ class KindleClippings:
             self.total_entries = sum(
                 len(book["entries"]) for book in self.books.values()
             )
-            self.folders = self.generate_folders()
             logger.debug(
                 f"Kindle: Loaded {self.total_entries} entries from {len(self.books)} books in {self.clippings_name}"
             )
@@ -204,7 +202,6 @@ class KindleClippings:
             logger.error(f"Kindle: Error reading clippings file: {e}")
             self.books = {}
             self.total_entries = 0
-            self.folders = []
 
     def parse_entries(self, raw_entries):
         """Parse the raw entries from the clippings file."""
@@ -293,8 +290,3 @@ class KindleClippings:
                         date = datetime.now()
 
         return {"type": entry_type, "page": page, "location": location, "date": date}
-
-    def generate_folders(self):
-        """Generate folders based on the first letter of book titles."""
-        folders = {title[0].upper() for title in self.books.keys() if title}
-        return sorted(folders)
