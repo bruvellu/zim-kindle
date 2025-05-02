@@ -4,4 +4,4 @@ Import Kindle clippings (highlights, notes, etc.) to [Zim Desktop Wiki](https://
 
 ## Description
 
-![Screenshot From 2025-04-09 22-29-43](https://github.com/user-attachments/assets/fe226f8a-d3f5-4654-b924-ffa696e46a19)
+![Screenshot From 2025-05-02 23-45-11](https://github.com/user-attachments/assets/f06be49b-f1c7-47b3-996f-ae6c267fd146)
