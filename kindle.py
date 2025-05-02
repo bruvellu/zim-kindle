@@ -167,12 +167,11 @@ class KindlePageViewExtension(PageViewExtension):
                 content.append("\n")
 
             for entry in book["entries"]:
-                content.append(f"{entry['text']}\n" f"| {entry['type'].title()} | ")
-                if entry["page"]:
-                    content.append(f"Page: {entry.get('page', 'N/A')} | ")
-                if entry["location"]:
-                    content.append(f"Location: {entry.get('location', 'N/A')} | ")
-                content.append(f"{entry['date'].strftime('%Y-%m-%d %H:%M')} |\n\n")
+                content.append(f"{entry['text']}\n")
+                content.append(f"— {entry['type'].title()}")
+                content.append(f" · Page {entry.get('page', 'N/A')}")
+                content.append(f" · Location {entry.get('location', 'N/A')}")
+                content.append(f" · {entry['date'].strftime('%Y-%m-%d %H:%M')}\n\n")
 
             # Update content tree and save page
             page.set_parsetree(self.get_content_tree(content))
